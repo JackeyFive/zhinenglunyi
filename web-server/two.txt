@@ -1,0 +1,27 @@
+    var gpoint = new BMapGL.Point(x,y);
+    
+    //地图初始化
+    var bm = new BMapGL.Map("allmap");
+    bm.centerAndZoom(gpoint, 15);
+    bm.addControl(new BMapGL.ZoomControl());
+    bm.enableScrollWheelZoom(true); // 开启鼠标滚轮缩放
+
+
+
+    //坐标转换完之后的回调函数
+    translateCallback = function (data){
+      if(data.status === 0) {
+        var marker = new BMapGL.Marker(data.points[0]);
+        bm.addOverlay(marker);
+        bm.setCenter(data.points[0]);
+     
+
+    
+        bm.addOverlay(marker);              // 将标注添加到地图中
+        var opts = {
+            width : 200,     // 信息窗口宽度
+            height: 100,     // 信息窗口高度
+            title : "轮椅信息" , // 信息窗口标题
+            message:"这里是信息"
+        }
+        var infoWindow = new BMapGL.InfoWindow(

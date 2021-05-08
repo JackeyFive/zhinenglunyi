@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+    <style type="text/css">
+        body, html,#allmap {width: 100%;height: 100%;overflow: hidden;margin:0;font-family:"微软雅黑";}
+    </style>
+<script src="http://api.map.baidu.com/api?type=webgl&v=1.0&ak=your ak"></script>
+    <title>轮椅信息在线查看</title>
+</head>
+<body>
+    <div id="allmap"></div>
+</body>
+</html>
+<script type="text/javascript">
+var x=116.000000;
+var y=39.000000;
+    var gpoint = new BMapGL.Point(x,y);
+    
+    //地图初始化
+    var bm = new BMapGL.Map("allmap");
+    bm.centerAndZoom(gpoint, 15);
+    bm.addControl(new BMapGL.ZoomControl());
+    bm.enableScrollWheelZoom(true); // 开启鼠标滚轮缩放
+
+
+
+    //坐标转换完之后的回调函数
+    translateCallback = function (data){
+      if(data.status === 0) {
+        var marker = new BMapGL.Marker(data.points[0]);
+        bm.addOverlay(marker);
+        bm.setCenter(data.points[0]);
+     
+
+    
+        bm.addOverlay(marker);              // 将标注添加到地图中
+        var opts = {
+            width : 200,     // 信息窗口宽度
+            height: 100,     // 信息窗口高度
+            title : "轮椅信息" , // 信息窗口标题
+            message:"这里是信息"
+        }
+        var infoWindow = new BMapGL.InfoWindow(
+"wendu: 12.00  shidu: 34.00  heart rate: 12.00  spo2: 234.90", opts);  // 创建信息窗口对象 
+            marker.addEventListener("click", function(){          
+            bm.openInfoWindow(infoWindow, data.points[0]); //开启信息窗口
+            });
+        }
+    }
+
+    setTimeout(function(){
+        var convertor = new BMapGL.Convertor();
+        var pointArr = [];
+        pointArr.push(gpoint);
+        convertor.translate(pointArr, COORDINATES_WGS84, COORDINATES_BD09, translateCallback)
+    }, 1000);
+
+</script>
+
