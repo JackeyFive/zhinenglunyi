@@ -1,0 +1,586 @@
+C51 COMPILER V9.60.0.0   MAIN                                                              04/29/2021 10:09:13 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\Objects\main.obj
+COMPILER INVOKED BY: D:\MDK5\C51\BIN\C51.EXE main.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\main.ls
+                    -t) OBJECT(.\Objects\main.obj)
+
+line level    source
+
+   1          #include<reg52.h>
+   2          #include<stdio.h>
+   3          #define uchar unsigned char
+   4                  #define uint unsigned int
+   5                          #define u8 unsigned char
+   6          #define iicr=0x91;
+   7                  #define iicw=0x90;
+   8                          
+   9                          
+  10                          #define TX_ADR_WIDTH   5                                // 5×Ö½Ú¿í¶ÈµÄ·¢ËÍ/½ÓÊÕµØÖ·
+  11          #define TX_PLOAD_WIDTH 32                               // Êý¾ÝÍ¨µÀÓÐÐ§Êý¾Ý¿í¶È
+  12          
+  13          //********************************************************************************************************
+             -************//
+  14          // SPI(SI24R1) commands
+  15          #define READ_REG        0x00  // Define read command to register
+  16          #define WRITE_REG       0x20  // Define write command to register
+  17          #define RD_RX_PLOAD     0x61  // Define RX payload register address
+  18          #define WR_TX_PLOAD     0xA0  // Define TX payload register address
+  19          #define FLUSH_TX        0xE1  // Define flush TX register command
+  20          #define FLUSH_RX        0xE2  // Define flush RX register command
+  21          #define REUSE_TX_PL     0xE3  // Define reuse TX payload register command
+  22          #define NOP             0xFF  // Define No Operation, might be used to read status register
+  23          
+  24          //********************************************************************************************************
+             -************//
+  25          // SPI(SI24R1) registers(addresses)
+  26          #define CONFIG          0x00  // 'Config' register address
+  27          #define EN_AA           0x01  // 'Enable Auto Acknowledgment' register address
+  28          #define EN_RXADDR       0x02  // 'Enabled RX addresses' register address
+  29          #define SETUP_AW        0x03  // 'Setup address width' register address
+  30          #define SETUP_RETR      0x04  // 'Setup Auto. Retrans' register address
+  31          #define RF_CH           0x05  // 'RF channel' register address
+  32          #define RF_SETUP        0x06  // 'RF setup' register address
+  33          #define STATUS          0x07  // 'Status' register address
+  34          #define OBSERVE_TX      0x08  // 'Observe TX' register address
+  35          #define RSSI            0x09  // 'Received Signal Strength Indecator' register address
+  36          #define RX_ADDR_P0      0x0A  // 'RX address pipe0' register address
+  37          #define RX_ADDR_P1      0x0B  // 'RX address pipe1' register address
+  38          #define RX_ADDR_P2      0x0C  // 'RX address pipe2' register address
+  39          #define RX_ADDR_P3      0x0D  // 'RX address pipe3' register address
+  40          #define RX_ADDR_P4      0x0E  // 'RX address pipe4' register address
+  41          #define RX_ADDR_P5      0x0F  // 'RX address pipe5' register address
+  42          #define TX_ADDR         0x10  // 'TX address' register address
+  43          #define RX_PW_P0        0x11  // 'RX payload width, pipe0' register address
+  44          #define RX_PW_P1        0x12  // 'RX payload width, pipe1' register address
+  45          #define RX_PW_P2        0x13  // 'RX payload width, pipe2' register address
+  46          #define RX_PW_P3        0x14  // 'RX payload width, pipe3' register address
+  47          #define RX_PW_P4        0x15  // 'RX payload width, pipe4' register address
+  48          #define RX_PW_P5        0x16  // 'RX payload width, pipe5' register address
+  49          #define FIFO_STATUS     0x17  // 'FIFO Status Register' register address
+  50          
+  51          //********************************************************************************************************
+             -************//
+C51 COMPILER V9.60.0.0   MAIN                                                              04/29/2021 10:09:13 PAGE 2   
+
+  52          // STATUS Register 
+  53          #define RX_DR                                           0x40  /**/
+  54          #define TX_DS                                           0x20
+  55          #define MAX_RT                                  0x10
+  56          
+  57          
+  58          u8 code TX_ADDRESS[TX_ADR_WIDTH] = {0xA5, 0x5A, 0xA5, 0x01, 0x01};
+  59          
+  60          
+  61          
+  62          sbit in1=P0^0;              //?????
+  63          sbit in2=P0^1;                //??????????????
+  64          sbit in3=P0^2;  //??????????????
+  65          sbit in4=P0^3;
+  66          sbit en1=P0^4;
+  67          sbit en2=P0^5;
+  68          
+  69          sbit qian=P2^0;
+  70          sbit hou=P2^1;
+  71          sbit zuo=P2^2;
+  72          sbit you=P2^3;
+  73          
+  74          unsigned char temp;
+  75          
+  76          sbit CSN=P1^3;
+  77                  sbit CE=P1^4;
+  78                  sbit MOSI=P1^5;
+  79                  sbit SCK=P1^6;
+  80                  sbit MISO=P1^7;
+  81                  
+  82                  sbit IRQ=P1^2;
+  83          
+  84          
+  85          u8 fa[5]={0};
+  86          u8 shou[32]={0};
+  87          
+  88          
+  89          void delay(uint x)
+  90                  {uint i,j;
+  91   1                      for(i=0;i<x;i++)
+  92   1                      for(j=0;j<110;j++);
+  93   1                      
+  94   1              }
+  95          
+  96          
+  97                                                                                                                                          //                                      ÎÞÏß²¿·Ö
+  98          
+  99          static u8 SPI_RW(u8 byte)                                                                       //¶ÁÐ´Ò»×Ö½Ú
+ 100          {
+ 101   1              u8 bit_ctr;
+ 102   1              for(bit_ctr=0; bit_ctr<8; bit_ctr++)
+ 103   1              {
+ 104   2                      if(byte & 0x80)
+ 105   2                              MOSI = 1;
+ 106   2                      else
+ 107   2                              MOSI = 0;                                                                                                                                
+ 108   2                      byte = (byte << 1);                      
+ 109   2                      SCK = 1;                                   
+ 110   2                      byte |= MISO;                             
+ 111   2                      SCK = 0;                                
+ 112   2              }
+ 113   1              return(byte);                              
+C51 COMPILER V9.60.0.0   MAIN                                                              04/29/2021 10:09:13 PAGE 3   
+
+ 114   1      }
+ 115                  
+ 116                  void SI24R1_Init(void)                                          //³õÊ¼»¯ÎÞÏß
+ 117          {
+ 118   1              SCK = 0;                                                                                                        //SPIÊ±ÖÓÏßÀ­µÍ
+ 119   1              CSN = 1;                                
+ 120   1              CE      = 0;                            
+ 121   1              IRQ = 1;
+ 122   1      }
+ 123                  
+ 124          
+ 125          u8 SI24R1_Write_Reg(u8 reg, u8 value)                   //Ð´Ò»ÌõÃüÁî
+ 126          {
+ 127   1              u8 status;
+ 128   1               
+ 129   1              CSN = 0;                 
+ 130   1              status = SPI_RW(reg);                           
+ 131   1              SPI_RW(value);
+ 132   1              CSN = 1;  
+ 133   1               
+ 134   1              return(status);
+ 135   1      }
+ 136          
+ 137          
+ 138          u8 SI24R1_Write_Buf(u8 reg, const u8 *pBuf, u8 bytes)   //Ð´Èë¶à¸ö×Ö½Ú
+ 139          {
+ 140   1              u8 status,byte_ctr;
+ 141   1               
+ 142   1        CSN = 0;                                                      
+ 143   1        status = SPI_RW(reg);                          
+ 144   1        for(byte_ctr=0; byte_ctr<bytes; byte_ctr++)     
+ 145   1        { 
+ 146   2                      SPI_RW(*pBuf);
+ 147   2                      pBuf++;
+ 148   2              }
+ 149   1        CSN = 1;                                              
+ 150   1       
+ 151   1        return(status);       
+ 152   1      }       
+ 153          
+ 154          
+ 155          u8 SI24R1_Read_Reg(u8 reg)                              //¶ÁÒ»¸ö×Ö½Ú
+ 156          {
+ 157   1              u8 value;
+ 158   1               
+ 159   1              CSN = 0;    
+ 160   1              SPI_RW(reg);                    
+ 161   1              value = SPI_RW(0);
+ 162   1              CSN = 1;              
+ 163   1       
+ 164   1              return(value);
+ 165   1      }
+ 166          
+ 167          
+ 168          
+ 169          u8 SI24R1_Read_Buf(u8 reg, u8 *pBuf, u8 bytes)          //¶Á¶à¸ö×Ö½Ú
+ 170          {
+ 171   1              u8 status,byte_ctr;
+ 172   1               
+ 173   1        CSN = 0;                                        
+ 174   1        status = SPI_RW(reg);                           
+ 175   1        for(byte_ctr=0;byte_ctr<bytes;byte_ctr++)
+C51 COMPILER V9.60.0.0   MAIN                                                              04/29/2021 10:09:13 PAGE 4   
+
+ 176   1          pBuf[byte_ctr] = SPI_RW(0);                   //¶ÁÈ¡Êý¾Ý£¬µÍ×Ö½ÚÔÚÇ°
+ 177   1        CSN = 1;                                        
+ 178   1       
+ 179   1        return(status);    
+ 180   1      }
+ 181                                                                          
+ 182          
+ 183          
+ 184          
+ 185          
+ 186          //Ð¡³µ½Úµã³õÊ¼»¯
+ 187          
+ 188          void CHE_RX_Mode(void)//SI24R1½ÓÊÕÄ£Ê½³õÊ¼»¯
+ 189          {
+ 190   1              CE = 0;
+ 191   1              
+ 192   1              SI24R1_Write_Buf(WRITE_REG + RX_ADDR_P0, TX_ADDRESS, TX_ADR_WIDTH);     // ½ÓÊÕÉè±¸½ÓÊÕÍ¨µÀ0Ê¹ÓÃºÍ·¢ËÍÉè±¸ÏàÍ
+             -¬µÄ·¢ËÍµØÖ·
+ 193   1              SI24R1_Write_Reg(WRITE_REG + EN_AA, 0x01);                                                              // Ê¹ÄÜ½ÓÊÕÍ¨µÀ0×Ô¶¯Ó¦´ð
+ 194   1              SI24R1_Write_Reg(WRITE_REG + EN_RXADDR, 0x01);                                                          // Ê¹ÄÜ½ÓÊÕÍ¨µÀ0
+ 195   1              SI24R1_Write_Reg(WRITE_REG + RF_CH, 40);                                                                // Ñ¡ÔñÉäÆµÍ¨µÀ0x40
+ 196   1              SI24R1_Write_Reg(WRITE_REG + RX_PW_P0, TX_PLOAD_WIDTH);                                                 // ½ÓÊÕÍ¨µÀ0Ñ¡ÔñºÍ·¢ËÍÍ¨µÀÏàÍ¬ÓÐÐ§Êý¾Ý¿í¶È
+ 197   1              SI24R1_Write_Reg(WRITE_REG + RF_SETUP, 0x0f);                                                           // Êý¾Ý´«ÊäÂÊ2Mbps£¬·¢Éä¹¦ÂÊ7dBm
+ 198   1              SI24R1_Write_Reg(WRITE_REG + CONFIG, 0x0f);                                                             // CRCÊ¹ÄÜ£¬16Î»CRCÐ£Ñé£¬ÉÏµç£¬½ÓÊÕÄ£Ê½
+ 199   1              SI24R1_Write_Reg(WRITE_REG + STATUS, 0xff);                                                                                             //Çå³ýËùÓÐµÄÖÐ¶Ï±êÖ¾Î»
+ 200   1              CE = 1;                                                                                                                 // À­¸ßCEÆô¶¯½ÓÊÕÉè±¸
+ 201   1              
+ 202   1      
+ 203   1      }
+ 204          
+ 205          
+ 206          
+ 207          
+ 208          //Ò£¿ØÆ÷½Úµã·¢ËÍ³õÊ¼»¯
+ 209          void YAOKONG_TX_Mode(void)                      //SI24R1·¢ËÍÄ£Ê½³õÊ¼»¯
+ 210          {
+ 211   1              CE = 0;
+ 212   1              
+ 213   1              SI24R1_Write_Buf(WRITE_REG + TX_ADDR, TX_ADDRESS, TX_ADR_WIDTH);     // Ð´Èë·¢ËÍµØÖ·
+ 214   1              SI24R1_Write_Buf(WRITE_REG + RX_ADDR_P0, TX_ADDRESS, TX_ADR_WIDTH);  // ÎªÁËÓ¦´ð½ÓÊÕÉè±¸£¬½ÓÊÕÍ¨µÀ0µØÖ·ºÍ
+             -·¢ËÍµØÖ·ÏàÍ¬
+ 215   1      
+ 216   1              //SI24R1_Write_Reg(WRITE_REG + EN_AA, 0x01);                                                                                            // Ê¹ÄÜ½ÓÊÕÍ¨µÀ0×Ô¶¯Ó¦´ð
+ 217   1              SI24R1_Write_Reg(WRITE_REG + EN_RXADDR, 0x01);                                                                                          // Ê¹ÄÜ½ÓÊÕÍ¨µÀ0
+ 218   1              SI24R1_Write_Reg(WRITE_REG + SETUP_RETR, 0x0a);                                                                                         // ×Ô¶¯ÖØ·¢ÑÓÊ±µÈ´ý250us+86us£¬×Ô¶¯ÖØ·¢10´Î
+ 219   1              SI24R1_Write_Reg(WRITE_REG + RF_CH, 40);                                                                                                // Ñ¡ÔñÉäÆµÍ¨µÀ0x40
+ 220   1              SI24R1_Write_Reg(WRITE_REG + RF_SETUP, 0x0f);                                                                                           // Êý¾Ý´«ÊäÂÊ2Mbps£¬·¢Éä¹¦ÂÊ7dBm
+ 221   1              SI24R1_Write_Reg(WRITE_REG + CONFIG, 0x0e);                                                                                             // CRCÊ¹ÄÜ£¬16Î»CRCÐ£Ñé£¬ÉÏµç
+ 222   1              //CE = 1;
+ 223   1      }
+ 224          
+ 225          
+ 226          u8 SI24R1_RxPacket(u8 *rxbuf)                   //½ÓÊÕÊý¾Ý
+ 227          {
+ 228   1              u8 state;
+ 229   1              CE = 0;
+ 230   1              state = SI24R1_Read_Reg(STATUS);                                         //¶ÁÈ¡×´Ì¬¼Ä´æÆ÷µÄÖµ             
+ 231   1              SI24R1_Write_Reg(WRITE_REG+STATUS,state); //&(~0x40)              //Çå³ýRX_DSÖÐ¶Ï±êÖ¾
+ 232   1      
+ 233   1              if(state & RX_DR)                                                                                          //½ÓÊÕµ½Êý¾Ý
+ 234   1              {
+ 235   2                      SI24R1_Read_Buf(RD_RX_PLOAD,rxbuf,TX_PLOAD_WIDTH);     //¶ÁÈ¡Êý¾Ý
+C51 COMPILER V9.60.0.0   MAIN                                                              04/29/2021 10:09:13 PAGE 5   
+
+ 236   2                      SI24R1_Write_Reg(FLUSH_RX,0xff);                                                      //Çå³ýRX FIFO¼Ä´æÆ÷
+ 237   2                      CE = 1;
+ 238   2                      return 's'; 
+ 239   2              }          
+ 240   1              SI24R1_Write_Reg(FLUSH_RX,0xff);
+ 241   1              CE = 1;
+ 242   1              return 'f';                                                   //Ã»ÊÕµ½ÈÎºÎÊý¾Ý
+ 243   1      }
+ 244          
+ 245          
+ 246          
+ 247          u8 SI24R1_TxPacket(u8 *txbuf)                           //·¢ËÍÊý¾Ý
+ 248          {
+ 249   1              u8 state;
+ 250   1              
+ 251   1              CE=0;                                                                                                                                                                                                             //CEÀ­µÍ£¬Ê¹ÄÜSI24R1ÅäÖÃ
+ 252   1        SI24R1_Write_Buf(WR_TX_PLOAD, txbuf, TX_PLOAD_WIDTH);     //Ð´Êý¾Ýµ½TX FIFO,32¸ö×Ö½Ú
+ 253   1              CE=1;                                                                                                                                                                                                             //CEÖÃ¸ß£¬Ê¹ÄÜ·¢ËÍ       
+ 254   1              
+ 255   1              while(IRQ == 1);                                                                                                                                                                  //µÈ´ý·¢ËÍÍê³É
+ 256   1              state = SI24R1_Read_Reg(STATUS);                                                                                          //¶ÁÈ¡×´Ì¬¼Ä´æÆ÷µÄÖµ     
+ 257   1              SI24R1_Write_Reg(WRITE_REG+STATUS, state);              //&(~0x30)                                              //Çå³ýTX_DS»òMAX_RTÖÐ¶Ï±êÖ¾
+ 258   1              SI24R1_Write_Reg(FLUSH_TX,0xff);
+ 259   1              if(state&MAX_RT)                                                                                                                                                            //´ïµ½×î´óÖØ·¢´ÎÊý
+ 260   1              {
+ 261   2                                                                                                          //Çå³ýTX FIFO¼Ä´æÆ÷ 
+ 262   2                      return 'm'; 
+ 263   2              }
+ 264   1              if(state&TX_DS)                                                                                                                                                       //·¢ËÍÍê³É
+ 265   1              {
+ 266   2                      return 's';
+ 267   2              }
+ 268   1              return 'f';                                                                                                                                                                               //·¢ËÍÊ§°Ü
+ 269   1      }
+ 270          
+ 271                  void fasong_pc(char x){
+ 272   1                      SBUF=x;
+ 273   1                      while(!TI);
+ 274   1                      TI=0;
+ 275   1              
+ 276   1              }
+ 277          
+ 278                  void dhDelay(uint j)
+ 279              {      uchar i;
+ 280   1                  for(;j>0;j--)
+ 281   1                {     
+ 282   2                      for(i=0;i<27;i++);
+ 283   2      
+ 284   2                }
+ 285   1          }
+ 286                  
+ 287          u8 fasong(u8 *a)
+ 288          {
+ 289   1              u8 re=SI24R1_TxPacket((u8*)a);
+ 290   1              dhDelay(255);   
+ 291   1      return re;      
+ 292   1      }
+ 293          
+ 294          
+ 295          u8 jieshou(u8 *a)
+ 296          {
+ 297   1              u8 re=SI24R1_RxPacket(a);
+C51 COMPILER V9.60.0.0   MAIN                                                              04/29/2021 10:09:13 PAGE 6   
+
+ 298   1      dhDelay(255);
+ 299   1              return re;
+ 300   1              
+ 301   1      }
+ 302          
+ 303          
+ 304          void init(){
+ 305   1              //TMOD=0x01;
+ 306   1                      TMOD=0x21;
+ 307   1                      TH0=0xb0;
+ 308   1                      TL0=0x3c;
+ 309   1                      TR0=1;
+ 310   1                      ET0=1;
+ 311   1                      EA=1;
+ 312   1                      
+ 313   1              SCON=0x50;                      
+ 314   1              SM0=1;SM1=1;
+ 315   1                      SM2=0;
+ 316   1                      REN=1;                  
+ 317   1              PCON=0x80;                      
+ 318   1              TH1=0xf4;          //       TH1=0xf3;                   
+ 319   1              TL1=0xf4;                                        //       TL1=0xf3;
+ 320   1              ES=1;                                                                           
+ 321   1              TR1=1;  
+ 322   1                      
+ 323   1               //IT0=0;   //´ò¿ªÍâ²¿ÖÐ¶Ï
+ 324   1              // EX0=1;
+ 325   1      
+ 326   1                      
+ 327   1                      
+ 328   1              //      ES=1;
+ 329   1                      
+ 330   1                      //PCON=0x00;
+ 331   1                      
+ 332   1              }
+ 333          
+ 334                  
+ 335          //void main()                                                                   //jie
+ 336          //{     u8 re=0;
+ 337          //      init();SI24R1_Init();
+ 338          //      CHE_RX_Mode();
+ 339          //      shou[0]='g';
+ 340          //      while(1)
+ 341          //      {
+ 342          //      IRQ=1;
+ 343          //      
+ 344          //              
+ 345          //      while(IRQ);
+ 346          //              re++;
+ 347          //      
+ 348          //      jieshou(shou);
+ 349          //      
+ 350          //              fasong_pc(re+48);
+ 351          //              fasong_pc('\n');
+ 352          //              
+ 353          //              
+ 354          //      }
+ 355          //      
+ 356          //}
+ 357                  
+ 358          //void main()                                                           //fa
+ 359          //{ u8 re;
+C51 COMPILER V9.60.0.0   MAIN                                                              04/29/2021 10:09:13 PAGE 7   
+
+ 360          //      init();SI24R1_Init();
+ 361          //      YAOKONG_TX_Mode();
+ 362          //      fa[0]='h';
+ 363          //      while(1)
+ 364          //{
+ 365          //      IRQ=1;
+ 366          //      
+ 367          //      
+ 368          //      
+ 369          //      re=fasong(fa);
+ 370          //      
+ 371          //      fasong_pc(re);
+ 372          //              fasong_pc('\n');
+ 373          //      delay(1000);
+ 374          //      
+ 375          //}
+ 376          
+ 377          //}
+ 378          
+ 379          
+ 380          
+ 381          
+ 382          void get(){             //     ½ÓÊÕÖ÷º¯Êý
+ 383   1                              
+ 384   1                      IRQ=1;
+ 385   1                      
+ 386   1                      init();
+ 387   1                      SI24R1_Init();
+ 388   1                      CHE_RX_Mode();
+ 389   1               
+ 390   1                      
+ 391   1      
+ 392   1              while(1)
+ 393   1              {
+ 394   2                      
+ 395   2                      
+ 396   2                      
+ 397   2                      IRQ=1;
+ 398   2                      
+ 399   2                      while(IRQ);
+ 400   2                      
+ 401   2                      jieshou(shou);
+ 402   2                      
+ 403   2                      temp=shou[0];
+ 404   2                      
+ 405   2              
+ 406   2                      
+ 407   2                      switch(temp)
+ 408   2                      {
+ 409   3                              case 0x01:
+ 410   3                                      
+ 411   3                                      en1=1;en2=1;in1=1;in2=0;in3=1;in4=0;fasong_pc(temp);fasong_pc('\n');
+ 412   3                                      
+ 413   3                                      IRQ=1;
+ 414   3                                      while(IRQ);
+ 415   3                                      jieshou(shou);temp=shou[0];fasong_pc(temp);fasong_pc('\n');
+ 416   3                                      
+ 417   3                                      break;
+ 418   3                                      
+ 419   3                              case 0x02:
+ 420   3                                      
+ 421   3                                      en1=1;en2=1;in1=0;in2=1;in3=0;in4=1;fasong_pc(temp);fasong_pc('\n');
+C51 COMPILER V9.60.0.0   MAIN                                                              04/29/2021 10:09:13 PAGE 8   
+
+ 422   3                                              
+ 423   3                                      IRQ=1;
+ 424   3                                      while(IRQ);
+ 425   3                                      jieshou(shou);temp=shou[0];fasong_pc(temp);fasong_pc('\n');
+ 426   3                                      break;
+ 427   3                              
+ 428   3                              case 0x03:
+ 429   3                                      
+ 430   3                                      en1=1;en2=1;in1=1;in2=0;in3=0;in4=1;fasong_pc(temp);fasong_pc('\n');
+ 431   3                              
+ 432   3                                      IRQ=1;
+ 433   3                                      while(IRQ){     en1=0;en2=0;delay(5);en1=1;en2=1;delay(5);}
+ 434   3                                      jieshou(shou);temp=shou[0];fasong_pc(temp);fasong_pc('\n');
+ 435   3                                      break;
+ 436   3                              
+ 437   3                              case 0x04:
+ 438   3                                      
+ 439   3                                      en1=1;en2=1;in1=0;in2=1;in3=1;in4=0;fasong_pc(temp);fasong_pc('\n');
+ 440   3                              
+ 441   3                                      IRQ=1;
+ 442   3                                      while(IRQ){     en1=0;en2=0;delay(5);en1=1;en2=1;delay(5);}
+ 443   3                                      jieshou(shou);temp=shou[0];fasong_pc(temp);fasong_pc('\n');
+ 444   3                                      break;
+ 445   3                              
+ 446   3                              
+ 447   3                              default: fasong_pc('k');fasong_pc('\n');
+ 448   3                      
+ 449   3                      }
+ 450   2                      in1=0;
+ 451   2                      in2=0;
+ 452   2                      in3=0;
+ 453   2                      in4=0;
+ 454   2              }
+ 455   1              
+ 456   1      }
+ 457          
+ 458          
+ 459          
+ 460          
+ 461          void send(){            //     ·¢ËÍÖ÷º¯Êý
+ 462   1              u8 re;          
+ 463   1                      IRQ=1;
+ 464   1                      
+ 465   1                      init();
+ 466   1                      SI24R1_Init();
+ 467   1                      YAOKONG_TX_Mode();
+ 468   1               P2=0x00;
+ 469   1              fa[0]='x';
+ 470   1      
+ 471   1              while(1)
+ 472   1              {
+ 473   2                      
+ 474   2      
+ 475   2                      temp=P2;
+ 476   2                      
+ 477   2                      
+ 478   2                      while(1)
+ 479   2                      {
+ 480   3                              if((temp=P2)!=0x00)
+ 481   3                              {
+ 482   4                                      delay(100);
+ 483   4                                      if((temp=P2)!=0x00)
+C51 COMPILER V9.60.0.0   MAIN                                                              04/29/2021 10:09:13 PAGE 9   
+
+ 484   4                                              break;
+ 485   4                              }
+ 486   3                      }
+ 487   2                      switch(temp)
+ 488   2                      {
+ 489   3                              case 0x08:
+ 490   3                                      fa[0]=1;
+ 491   3                                      re=fasong(fa);fasong_pc(re);fasong_pc('\n');
+ 492   3                                      while((temp=P2)==0x08)
+ 493   3                                      {P2=0x00;delay(10);}
+ 494   3                                      fa[0]=0;
+ 495   3                                      fasong(fa);fasong_pc(re);fasong_pc('\n');
+ 496   3                                      break;
+ 497   3                                      
+ 498   3                              case 0x04:
+ 499   3                                      fa[0]=2;
+ 500   3                                      re=fasong(fa);fasong_pc(re);fasong_pc('\n');
+ 501   3                                      while((temp=P2)==0x04){P2=0x00;delay(10);}
+ 502   3                                      fa[0]=0;
+ 503   3                                      fasong(fa);fasong_pc(re);fasong_pc('\n');
+ 504   3                                      break;
+ 505   3                              
+ 506   3                              case 0x02:
+ 507   3                                      fa[0]=3;
+ 508   3                                      re=fasong(fa);fasong_pc(re);fasong_pc('\n');
+ 509   3                                      while((temp=P2)==0x02){P2=0x00;delay(10);}
+ 510   3                                      fa[0]=0;
+ 511   3                                      fasong(fa);fasong_pc(re);fasong_pc('\n');
+ 512   3                                      break;
+ 513   3                              
+ 514   3                              case 0x01:
+ 515   3                                      fa[0]=4;fasong_pc(re);fasong_pc('\n');
+ 516   3                                      re=fasong(fa);
+ 517   3                                      while((temp=P2)==0x01){P2=0x00;delay(10);}
+ 518   3                                      fa[0]=0;
+ 519   3                                      fasong(fa);fasong_pc(re);fasong_pc('\n');
+ 520   3                                      break;
+ 521   3                              
+ 522   3                              
+ 523   3                              default: ;
+ 524   3                      
+ 525   3                      }
+ 526   2      
+ 527   2                      delay(10);P2=0x00;
+ 528   2              }
+ 529   1              
+ 530   1      }
+ 531          
+ 532          
+ 533          
+ 534          void main()
+ 535          {
+ 536   1              send();
+ 537   1      //      get();
+ 538   1      
+ 539   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    928    ----
+   CONSTANT SIZE    =      5    ----
+   XDATA SIZE       =   ----    ----
+C51 COMPILER V9.60.0.0   MAIN                                                              04/29/2021 10:09:13 PAGE 10  
+
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     38      14
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
