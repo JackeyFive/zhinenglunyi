@@ -32,6 +32,7 @@
 ..\obj\main.o: ..\STM32F10x_FWLib\inc\stm32f10x_wwdg.h
 ..\obj\main.o: ..\STM32F10x_FWLib\inc\misc.h
 ..\obj\main.o: D:\MDK5\ARM\ARMCC\Bin\..\include\string.h
+..\obj\main.o: D:\MDK5\ARM\ARMCC\Bin\..\include\math.h
 ..\obj\main.o: ..\SYSTEM\sys\sys.h
 ..\obj\main.o: ..\SYSTEM\usart\usart.h
 ..\obj\main.o: ..\SYSTEM\DHT11\dht11.h
@@ -40,3 +41,4 @@
 ..\obj\main.o: ..\SYSTEM\IIC\max30102.h
 ..\obj\main.o: ..\SYSTEM\IIC\myiic.h
 ..\obj\main.o: ..\SYSTEM\IIC\algorithm.h
+..\obj\main.o: ..\SYSTEM\gps\gps.h

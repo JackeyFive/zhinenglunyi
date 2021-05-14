@@ -7,3 +7,7 @@ float spo2;
 float jingdu;
 float weidu;
 
+char gpsbuf_i;
+char gps_already;
+char *gpsbuf;
+

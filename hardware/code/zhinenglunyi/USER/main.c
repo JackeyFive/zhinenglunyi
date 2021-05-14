@@ -2,6 +2,7 @@
 #include "stdlib.h"
 #include "delay.h"
 #include "string.h"
+#include "math.h"
 #include "sys.h"
 #include "usart.h"	 
 #include "dht11.h" 	
@@ -12,7 +13,12 @@
 #include "max30102.h" 
 #include "myiic.h"
 #include "algorithm.h"
+#include "gps.h"
 
+char *gpsbuf;
+char *temp;
+int i;
+int b;
 
 void uart2_init(u32 bound)
 {
@@ -128,6 +134,10 @@ void tim_init()
 
 int main()
 {	
+	char tem[256];
+	gpsbuf=tem;
+	gpsbuf_i=0;
+	gps_already=0;
 	
 	wendu=30.00;
 	shidu=20.00;
@@ -141,14 +151,14 @@ int main()
 	delay_init(8);  
 	uart_init(115200);
 	uart2_init(9600);
-
+	gps_init();
 	helpinit();
 	tim_init();
 	max_once();
+	
 	while(1)
 	{
-		
-				
+					
 	}
 	
 }
@@ -166,13 +176,32 @@ void USART2_IRQHandler(void)
 }
 
 
+void USART3_IRQHandler(void)
+{		
+		//USART_ITConfig(USART3, USART_IT_RXNE, DISABLE);	
+		if(USART_GetFlagStatus(USART3, USART_FLAG_RXNE))
+		{	
+			gpsbuf[gpsbuf_i++]=USART_ReceiveData(USART3);
+			
+ 		}
+		else if(USART_GetFlagStatus(USART3, USART_FLAG_RXNE))
+		{
+			USART3->SR;
+			USART3->DR;
+			gps_already=1;			
+		
+		}
+		
+}
+
+
 
 
 void EXTI3_IRQHandler(void)
 {		delay_ms(1);
 		if((EXTI_GetITStatus(EXTI_Line3)!=RESET)&&(GPIO_ReadInputDataBit(GPIOB,GPIO_Pin_3)==0))
 		{	
-		USART_SendData(USART1,'3');	
+		//USART_SendData(USART1,'3');	
 		sendmessage();
 		
 	
@@ -185,30 +214,34 @@ void EXTI3_IRQHandler(void)
 
 void TIM3_IRQHandler(void)
 {
-	char mybuf[256];
+	//char mybuf[256];
 	if (TIM_GetITStatus(TIM3, TIM_IT_Update) != RESET) 
 	{
 		TIM_ClearITPendingBit(TIM3, TIM_IT_Update ); 
 		
+			gps_getdat();					//获得gps信息
 			DHT11_get(&wendu , &shidu);		//获得温湿度信息
 			maxim_get(&rate,&spo2);			//	获得心率血氧数据
 			sendtoserver();					//发送数据
 			
 			
-			sprintf(mybuf,"wen=%.2f, \r\n", wendu);
-				max_senddat(mybuf);
-			
-			
-			sprintf(mybuf,"shi=%.2f, \r\n", shidu);
-				max_senddat(mybuf);
-						
-					
-					max_senddat("\r\n");
-		sprintf(mybuf,"HR=%.2f, ", rate); 
-				max_senddat(mybuf);
-				
-				sprintf(mybuf,"SpO2=%.2f, \r\n", spo2);
-				max_senddat(mybuf);
+//			sprintf(mybuf,"wen=%.2f, \r\n", wendu);
+//				max_senddat(mybuf);
+//			
+//			
+//			sprintf(mybuf,"shi=%.2f, \r\n", shidu);
+//				max_senddat(mybuf);
+//						
+//					
+//					max_senddat("\r\n");
+//		sprintf(mybuf,"HR=%.2f, ", rate); 
+//				max_senddat(mybuf);
+//				
+//				sprintf(mybuf,"SpO2=%.2f, \r\n", spo2);
+//				max_senddat(mybuf);
+
 	}
 
 }
+
+

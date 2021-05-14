@@ -35,9 +35,7 @@
 "..\obj\algorithm.o"
 "..\obj\max30102.o"
 "..\obj\myiic.o"
-"..\obj\key.o"
-"..\obj\lcd.o"
-"..\obj\led.o"
+"..\obj\gps.o"
 --strict --scatter "..\OBJ\zhinenglunyi.sct"
 --summary_stderr --info summarysizes --map --load_addr_map_info --xref --callgraph --symbols
 --info sizes --info totals --info unused --info veneers
